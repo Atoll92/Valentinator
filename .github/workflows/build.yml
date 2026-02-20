@@ -8,40 +8,6 @@ on:
     branches: [master]
 
 jobs:
-  build-macos:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure CMake
-        run: cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
-
-      - name: Build
-        run: cmake --build build --parallel
-
-      - name: Prepare macOS VST3 artifact
-        run: |
-          mkdir -p artifacts
-          cp -R build/Valentinator_artefacts/Release/VST3/Valentinator.vst3 artifacts/
-          cd artifacts && zip -r ../Valentinator-macOS-VST3.zip Valentinator.vst3
-
-      - name: Prepare macOS AU artifact
-        run: |
-          cp -R build/Valentinator_artefacts/Release/AU/Valentinator.component artifacts/
-          cd artifacts && zip -r ../Valentinator-macOS-AU.zip Valentinator.component
-
-      - name: Upload macOS VST3
-        uses: actions/upload-artifact@v4
-        with:
-          name: Valentinator-macOS-VST3
-          path: Valentinator-macOS-VST3.zip
-
-      - name: Upload macOS AU
-        uses: actions/upload-artifact@v4
-        with:
-          name: Valentinator-macOS-AU
-          path: Valentinator-macOS-AU.zip
-
   build-windows:
     runs-on: windows-latest
     steps:
@@ -56,14 +22,15 @@ jobs:
       - name: Prepare Windows VST3 artifact
         shell: bash
         run: |
-          mkdir -p artifacts
-          cp -r build/Valentinator_artefacts/Release/VST3/Valentinator.vst3 artifacts/
+          mkdir -p staging
+          cp -r build/Valentinator_artefacts/Release/VST3/Valentinator.vst3 staging/
+          cd staging && 7z a -tzip ../Valentinator-Windows-VST3.zip Valentinator.vst3
 
       - name: Upload Windows VST3
         uses: actions/upload-artifact@v4
         with:
           name: Valentinator-Windows-VST3
-          path: artifacts/Valentinator.vst3
+          path: Valentinator-Windows-VST3.zip
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -77,20 +44,8 @@ jobs:
         with:
           name: Valentinator-Windows-VST3
 
-      - name: Download macOS VST3 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: Valentinator-macOS-VST3
-        continue-on-error: true
-
-      - name: Download macOS AU artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: Valentinator-macOS-AU
-        continue-on-error: true
-
-      - name: Zip Windows VST3
-        run: zip -r Valentinator-Windows-VST3.zip Valentinator.vst3
+      - name: List files
+        run: ls -la
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -103,13 +58,8 @@ jobs:
 
             ### Installation
 
-            **macOS (VST3):** Unzip and copy `Valentinator.vst3` to `/Library/Audio/Plug-Ins/VST3/`
-            **macOS (AU):** Unzip and copy `Valentinator.component` to `/Library/Audio/Plug-Ins/Components/`
-            **Windows (VST3):** Unzip and copy `Valentinator.vst3` folder to `C:\Program Files\Common Files\VST3\`
+            **Windows (VST3):** Unzip and copy the `Valentinator.vst3` folder to `C:\Program Files\Common Files\VST3\`
+            Then rescan plugins in your DAW (Reaper, Ableton, Bitwig, etc.)
 
-            Then rescan plugins in your DAW.
-          files: |
-            Valentinator-Windows-VST3.zip
-            Valentinator-macOS-VST3.zip
-            Valentinator-macOS-AU.zip
-          fail_on_unmatched_files: false
+            **macOS:** Build from source (see README) or use the locally built version.
+          files: Valentinator-Windows-VST3.zip

@@ -1,0 +1,102 @@
+name: Build Valentinator
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Prepare macOS VST3 artifact
+        run: |
+          mkdir -p artifacts
+          cp -R build/Valentinator_artefacts/Release/VST3/Valentinator.vst3 artifacts/
+          cd artifacts && zip -r ../Valentinator-macOS-VST3.zip Valentinator.vst3
+
+      - name: Prepare macOS AU artifact
+        run: |
+          cp -R build/Valentinator_artefacts/Release/AU/Valentinator.component artifacts/
+          cd artifacts && zip -r ../Valentinator-macOS-AU.zip Valentinator.component
+
+      - name: Upload macOS VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Valentinator-macOS-VST3
+          path: Valentinator-macOS-VST3.zip
+
+      - name: Upload macOS AU
+        uses: actions/upload-artifact@v4
+        with:
+          name: Valentinator-macOS-AU
+          path: Valentinator-macOS-AU.zip
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Prepare Windows VST3 artifact
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp -r build/Valentinator_artefacts/Release/VST3/Valentinator.vst3 artifacts/
+
+      - name: Upload Windows VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Valentinator-Windows-VST3
+          path: artifacts/Valentinator.vst3
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Zip Windows VST3
+        run: |
+          cd Valentinator-Windows-VST3
+          zip -r ../Valentinator-Windows-VST3.zip Valentinator.vst3
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Valentinator ${{ github.ref_name }}
+          body: |
+            ## Valentinator ${{ github.ref_name }}
+
+            Marine underwater audio effect processor.
+
+            ### Installation
+
+            **macOS (VST3):** Unzip and copy `Valentinator.vst3` to `/Library/Audio/Plug-Ins/VST3/`
+            **macOS (AU):** Unzip and copy `Valentinator.component` to `/Library/Audio/Plug-Ins/Components/`
+            **Windows (VST3):** Unzip and copy `Valentinator.vst3` folder to `C:\Program Files\Common Files\VST3\`
+
+            Then rescan plugins in your DAW.
+          files: |
+            Valentinator-macOS-VST3/Valentinator-macOS-VST3.zip
+            Valentinator-macOS-AU/Valentinator-macOS-AU.zip
+            Valentinator-Windows-VST3.zip

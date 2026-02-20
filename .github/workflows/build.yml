@@ -9,15 +9,15 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+        run: cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build --config Release --parallel
 
       - name: Prepare macOS VST3 artifact
         run: |

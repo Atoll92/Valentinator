@@ -9,15 +9,15 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure CMake
-        run: cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+        run: cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
 
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --parallel
 
       - name: Prepare macOS VST3 artifact
         run: |
@@ -67,18 +67,30 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-macos, build-windows]
+    needs: [build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download all artifacts
+      - name: Download Windows artifact
         uses: actions/download-artifact@v4
+        with:
+          name: Valentinator-Windows-VST3
+
+      - name: Download macOS VST3 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Valentinator-macOS-VST3
+        continue-on-error: true
+
+      - name: Download macOS AU artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Valentinator-macOS-AU
+        continue-on-error: true
 
       - name: Zip Windows VST3
-        run: |
-          cd Valentinator-Windows-VST3
-          zip -r ../Valentinator-Windows-VST3.zip Valentinator.vst3
+        run: zip -r Valentinator-Windows-VST3.zip Valentinator.vst3
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -97,6 +109,7 @@ jobs:
 
             Then rescan plugins in your DAW.
           files: |
-            Valentinator-macOS-VST3/Valentinator-macOS-VST3.zip
-            Valentinator-macOS-AU/Valentinator-macOS-AU.zip
             Valentinator-Windows-VST3.zip
+            Valentinator-macOS-VST3.zip
+            Valentinator-macOS-AU.zip
+          fail_on_unmatched_files: false
